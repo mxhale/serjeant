@@ -21,17 +21,20 @@ const QUERY = {
   all: `{ issues(first: 100, filter: ${NOT_DONE}) { nodes { ${FIELDS} } } }`,
 }
 
-export async function fetchTickets(apiKey: string, scope: 'mine' | 'all'): Promise<Ticket[]> {
+async function gql(apiKey: string, query: string, variables?: object): Promise<any> {
   const res = await fetch('https://api.linear.app/graphql', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: apiKey },
-    body: JSON.stringify({ query: QUERY[scope] }),
+    body: JSON.stringify({ query, variables }),
   })
   const json = (await res.json()) as any
-  if (!res.ok || json.errors) {
-    throw new Error(json.errors?.[0]?.message ?? `Linear HTTP ${res.status}`)
-  }
-  const nodes = (scope === 'mine' ? json.data.viewer.assignedIssues : json.data.issues).nodes
+  if (!res.ok || json.errors) throw new Error(json.errors?.[0]?.message ?? `Linear HTTP ${res.status}`)
+  return json.data
+}
+
+export async function fetchTickets(apiKey: string, scope: 'mine' | 'all'): Promise<Ticket[]> {
+  const data = await gql(apiKey, QUERY[scope])
+  const nodes = (scope === 'mine' ? data.viewer.assignedIssues : data.issues).nodes
   return nodes.map((n: any): Ticket => ({
     key: n.identifier,
     title: n.title,
@@ -44,6 +47,24 @@ export async function fetchTickets(apiKey: string, scope: 'mine' | 'all'): Promi
     labels: n.labels.nodes.map((l: any) => l.name),
     assignee: n.assignee?.name ?? null,
   }))
+}
+
+export type WorkflowState = { id: string; name: string; type: string }
+
+// target is a state name ("In Review") or a state type ("started"); name wins.
+export function pickState(states: WorkflowState[], target: string) {
+  const t = target.toLowerCase()
+  return states.find(s => s.name.toLowerCase() === t) ?? states.find(s => s.type === t)
+}
+
+export async function transition(apiKey: string, key: string, target: string, assignMe = false) {
+  const data = await gql(apiKey, `query($id: String!) { issue(id: $id) { id team { states { nodes { id name type } } } } viewer { id } }`, { id: key })
+  const state = pickState(data.issue.team.states.nodes, target)
+  if (!state) throw new Error(`no Linear state matching "${target}"`)
+  const input: Record<string, string> = { stateId: state.id }
+  if (assignMe) input.assigneeId = data.viewer.id
+  await gql(apiKey, `mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }`, { id: data.issue.id, input })
+  return state.name
 }
 
 export const DEMO: Ticket[] = [
