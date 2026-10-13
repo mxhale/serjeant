@@ -54,6 +54,8 @@ export function reduce(v: View, ev: any): View {
       }
       return added.length ? { ...v, items: [...items, ...added] } : v
     }
+    case 'sj_user': // our own log entry for messages we sent
+      return { ...v, state: 'working', items: [...items, { kind: 'user', text: ev.text }] }
     case 'control_request':
       if (ev.request?.subtype !== 'can_use_tool') return v
       return {
@@ -160,7 +162,9 @@ export class Run {
 
   send(text: string) {
     this.write({ type: 'user', message: { role: 'user', content: text } })
-    this.set({ ...this.view, state: 'working', items: [...this.view.items, { kind: 'user', text }] })
+    const ev = { type: 'sj_user', text }
+    appendFileSync(this.log, JSON.stringify(ev) + '\n')
+    this.set(reduce(this.view, ev))
   }
 
   answer(allow: boolean) {
