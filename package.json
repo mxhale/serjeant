@@ -1,17 +1,16 @@
 {
   "name": "serjeant",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Vim-keyed TUI: Linear issues -> worktree -> headless Claude -> diff review",
   "scripts": {
     "dev": "tsx src/cli.tsx",
     "demo": "tsx src/cli.tsx --demo",
     "test": "vitest run",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "build": "tsup",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
@@ -31,8 +30,18 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "ink-testing-library": "^4.0.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.4"
+  },
+  "bin": {
+    "serjeant": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
   }
 }

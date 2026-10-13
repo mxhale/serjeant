@@ -36,7 +36,9 @@ export function RunView({ wkey, config, back, review, handoff }: {
   const [, bump] = useReducer((n: number) => n + 1, 0)
   const [typing, setTyping] = useState(false)
   const [buf, setBuf] = useState('')
-  const [scroll, setScroll] = useState(0) // lines above the bottom; 0 follows the stream
+  const [scroll, setScrollS] = useState(0) // lines above the bottom; 0 follows the stream
+  const scrollRef = useRef(0)
+  const setScroll = (v: number) => { scrollRef.current = v; setScrollS(v) }
   const pendingG = useRef(false)
   useEffect(() => subscribe(bump), [])
 
@@ -47,6 +49,7 @@ export function RunView({ wkey, config, back, review, handoff }: {
   const lines = useMemo(() => toLines(view.items, width), [view.items, width])
   const maxScroll = Math.max(lines.length - height, 0)
   const s = Math.min(scroll, maxScroll)
+  scrollRef.current = s
   const shown = lines.slice(Math.max(lines.length - height - s, 0), lines.length - s)
   const [glyph, color] = BADGE[view.state]
   const live = isLive(wkey)
@@ -66,8 +69,8 @@ export function RunView({ wkey, config, back, review, handoff }: {
     if (view.pending && c === 'a') answerRun(wkey, true)
     else if (view.pending && c === 'x') answerRun(wkey, false)
     else if (c === 'i' || c === 'r') setTyping(true)
-    else if (c === 'j' || key.downArrow) setScroll(Math.max(s - 1, 0))
-    else if (c === 'k' || key.upArrow) setScroll(Math.min(s + 1, maxScroll))
+    else if (c === 'j' || key.downArrow) setScroll(Math.max(scrollRef.current - 1, 0))
+    else if (c === 'k' || key.upArrow) setScroll(Math.min(scrollRef.current + 1, maxScroll))
     else if (key.ctrl && c === 'd') setScroll(Math.max(s - Math.floor(height / 2), 0))
     else if (key.ctrl && c === 'u') setScroll(Math.min(s + Math.floor(height / 2), maxScroll))
     else if (c === 'G') setScroll(0)

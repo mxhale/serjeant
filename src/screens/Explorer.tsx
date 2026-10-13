@@ -4,7 +4,7 @@ import { configPath, ensureConfigFile, macros, resolveRepo, type Config } from '
 import { cacheGet, cacheSet, workAll, workGet, type Work } from '../db.js'
 import { DEMO, fetchTickets, type Ticket } from '../linear.js'
 import { toRows } from '../model.js'
-import { claudeHandoff, startRun, subscribe, ui, type Handoff, type Screen } from '../store.js'
+import { claudeHandoff, isLive, killRun, startRun, subscribe, ui, type Handoff, type Screen } from '../store.js'
 import { writeback } from '../writeback.js'
 import { finishWork, renderPrompt, startWork } from '../work.js'
 import { BADGE, Picker, eachKey } from '../widgets.js'
@@ -47,7 +47,8 @@ export function Explorer({ apiKey, demo, config, configError, go, handoff }: {
   const setFilter = (v: string) => { ui.filter = v; setFilterS(v) }
   const setTeam = (v?: string) => { ui.team = v; setTeamS(v) }
   const setLabel = (v?: string) => { ui.label = v; setLabelS(v) }
-  const setCursor = (v: number) => { ui.cursor = v; setCursorS(v) }
+  const cursorRef = useRef(cursor) // batched keys ("jjj") must each see the previous key's result
+  const setCursor = (v: number) => { cursorRef.current = v; ui.cursor = v; setCursorS(v) }
 
   const works = workAll()
   const workByKey = new Map(works.map(w => [w.key, w]))
@@ -55,6 +56,7 @@ export function Explorer({ apiKey, demo, config, configError, go, handoff }: {
   const rows = useMemo(() => toRows(all, mode === 'filter' ? buf : filter, team, label), [all, mode, buf, filter, team, label])
   const list = useMemo(() => rows.flatMap(r => (r.type === 'ticket' ? [r.ticket] : [])), [rows])
   const cur = Math.min(cursor, Math.max(list.length - 1, 0))
+  cursorRef.current = cur
   const selected = list[cur]
   const selWork = selected && workByKey.get(selected.key)
 
@@ -135,7 +137,9 @@ export function Explorer({ apiKey, demo, config, configError, go, handoff }: {
     } else if (name === 'done' || name === 'done!') {
       const key = arg ?? selected?.key
       if (!key) return setStatus('done: which ticket?')
-      try { finishWork(config, key, name === 'done!'); setStatus(`${key}: worktree removed`) }
+      const force = name === 'done!'
+      if (isLive(key) && !force) return setStatus(`${key}: agent is still running (:done! to stop it and remove)`)
+      try { if (force) killRun(key); finishWork(config, key, force); setStatus(`${key}: worktree removed`) }
       catch (e) { setStatus(`${key}: ${(e as Error).message}`) }
     } else setStatus(`unknown command: ${name}`)
     setCursor(0)
@@ -154,7 +158,7 @@ export function Explorer({ apiKey, demo, config, configError, go, handoff }: {
       return
     }
     const last = list.length - 1
-    const move = (n: number) => setCursor(Math.max(0, Math.min(last, cur + n)))
+    const move = (n: number) => setCursor(Math.max(0, Math.min(last, cursorRef.current + n)))
     const wasG = pendingG.current
     pendingG.current = false
     if (input === 'j' || key.downArrow) move(1)

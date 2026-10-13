@@ -75,4 +75,6 @@ export function claudeHandoff(w: Work, macro: Macro, prompt?: string): Handoff {
   return { cmd: process.env.SERJEANT_CLAUDE ?? 'claude', args: handoffArgs(macro.flags, sessionId, resume, resume ? undefined : prompt), cwd: w.path }
 }
 
+export const killRun = (key: string) => runs.get(key)?.kill()
+
 export const killAll = () => runs.forEach(r => r.kill())

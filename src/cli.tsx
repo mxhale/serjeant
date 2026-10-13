@@ -3,6 +3,14 @@ import { render } from 'ink'
 import { App } from './app.js'
 import { killAll, ui } from './store.js'
 
+process.removeAllListeners('warning') // node:sqlite's ExperimentalWarning would scribble over the TUI
+
+const missing = ['git', ...(process.env.SERJEANT_CLAUDE ? [] : ['claude'])].filter(c => spawnSync(c, ['--version']).error)
+if (missing.length) {
+  console.error(`serjeant needs ${missing.join(', ')} on PATH`)
+  process.exit(1)
+}
+
 const demo = process.argv.includes('--demo')
 const apiKey = process.env.LINEAR_API_KEY
 

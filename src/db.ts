@@ -1,4 +1,5 @@
-import { DatabaseSync } from 'node:sqlite'
+import { createRequire } from 'node:module'
+import type { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -6,9 +7,11 @@ import type { Ticket } from './linear.js'
 
 export const stateDir = () => process.env.SERJEANT_STATE ?? join(homedir(), '.local', 'state', 'serjeant')
 
+// Loaded via require: esbuild would rewrite a static `node:sqlite` import to bare `sqlite` and break the bundle.
 let db: DatabaseSync | undefined
 const get = () => {
   if (db) return db
+  const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as typeof import('node:sqlite')
   mkdirSync(stateDir(), { recursive: true })
   db = new DatabaseSync(join(stateDir(), 'serjeant.db'))
   db.exec(`

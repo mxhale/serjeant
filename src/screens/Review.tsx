@@ -21,7 +21,9 @@ export function Review({ wkey, config, apiKey, back, toRun }: {
   const { stdout } = useStdout()
   const [rev, bump] = useReducer((n: number) => n + 1, 0)
   const [fileIdx, setFileIdx] = useState(0)
-  const [cursor, setCursor] = useState(0)
+  const [cursor, setCursorS] = useState(0)
+  const cursorRef = useRef(0) // batched keys ("jjj") must each see the previous key's result
+  const setCursor = (v: number) => { cursorRef.current = v; setCursorS(v) }
   const [visual, setVisual] = useState<number>()
   const [mode, setMode] = useState<Mode>('normal')
   const [buf, setBuf] = useState('')
@@ -41,6 +43,7 @@ export function Review({ wkey, config, apiKey, back, toRun }: {
     [file],
   )
   const cur = Math.min(cursor, Math.max(rows.length - 1, 0))
+  cursorRef.current = cur
   const here = rows[cur]
   const commentsAt = (r: Row) => {
     if (!file || r.kind !== 'line') return []
@@ -103,15 +106,15 @@ export function Review({ wkey, config, apiKey, back, toRun }: {
     }
     const wasG = pendingG.current
     pendingG.current = false
-    const move = (n: number) => setCursor(Math.max(0, Math.min(rows.length - 1, cur + n)))
+    const move = (n: number) => setCursor(Math.max(0, Math.min(rows.length - 1, cursorRef.current + n)))
     if (c === 'j' || key.downArrow) move(1)
     else if (c === 'k' || key.upArrow) move(-1)
     else if (c === 'g') { if (wasG) setCursor(0); else pendingG.current = true }
     else if (c === 'G') setCursor(Math.max(rows.length - 1, 0))
     else if (key.ctrl && c === 'd') move(Math.floor(height / 2))
     else if (key.ctrl && c === 'u') move(-Math.floor(height / 2))
-    else if (c === ']') setCursor(hunkAt(cur, 1))
-    else if (c === '[') setCursor(hunkAt(cur, -1))
+    else if (c === ']') setCursor(hunkAt(cursorRef.current, 1))
+    else if (c === '[') setCursor(hunkAt(cursorRef.current, -1))
     else if (c === 'n') goFile(fileIdx + 1)
     else if (c === 'N') goFile(fileIdx - 1)
     else if (c === 'm' && file) { viewedToggle(wkey, file.path); bump() }
