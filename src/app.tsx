@@ -3,6 +3,7 @@ import { useApp } from 'ink'
 import { loadConfig, macros } from './config.js'
 import { workGet } from './db.js'
 import { Explorer, editor } from './screens/Explorer.js'
+import { Review } from './screens/Review.js'
 import { RunView } from './screens/RunView.js'
 import { claudeHandoff, ui, type Handoff, type Screen } from './store.js'
 
@@ -26,8 +27,19 @@ export function App({ apiKey, demo }: { apiKey?: string; demo: boolean }) {
         wkey={screen.key}
         config={config}
         back={() => go({ name: 'explorer' })}
-        review={() => go({ name: 'explorer' })}
+        review={() => go({ name: 'review', key: screen.key })}
         handoff={what => handoffFor(screen.key, what)}
+      />
+    )
+  }
+  if (screen.name === 'review') {
+    return (
+      <Review
+        wkey={screen.key}
+        config={config}
+        apiKey={apiKey}
+        back={() => go({ name: 'explorer' })}
+        toRun={() => go({ name: 'run', key: screen.key })}
       />
     )
   }
